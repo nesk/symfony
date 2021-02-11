@@ -56,7 +56,10 @@ class Connection
     private $deleteAfterReject;
     private $couldHavePendingMessages = true;
 
-    public function __construct(array $configuration, array $connectionCredentials = [], array $redisOptions = [], \Redis $redis = null)
+    /**
+     * @param \Redis|\RedisCluster|null $redis
+     */
+    public function __construct(array $configuration, array $connectionCredentials = [], array $redisOptions = [], $redis = null)
     {
         if (version_compare(phpversion('redis'), '4.3.0', '<')) {
             throw new LogicException('The redis transport requires php-redis 4.3.0 or higher.');
@@ -72,14 +75,17 @@ class Connection
         }
 
         $initializer = static function ($redis) use ($host, $port, $auth, $serializer, $dbIndex) {
-            $redis->connect($host, $port);
+            if ($redis instanceof \Redis) {
+                $redis->connect($host, $port);
+            }
+
             $redis->setOption(\Redis::OPT_SERIALIZER, $serializer);
 
-            if (null !== $auth && !$redis->auth($auth)) {
+            if (null !== $auth && $redis instanceof \Redis && !$redis->auth($auth)) {
                 throw new InvalidArgumentException('Redis connection failed: '.$redis->getLastError());
             }
 
-            if ($dbIndex && !$redis->select($dbIndex)) {
+            if ($dbIndex && $redis instanceof \Redis && !$redis->select($dbIndex)) {
                 throw new InvalidArgumentException('Redis connection failed: '.$redis->getLastError());
             }
 

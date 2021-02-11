@@ -40,6 +40,15 @@ class ConnectionTest extends TestCase
         }
     }
 
+    private function skipIfRedisClusterUnavailable()
+    {
+        try {
+            new \RedisCluster(null, explode(' ', getenv('REDIS_CLUSTER_HOSTS')));
+        } catch (\Exception $e) {
+            self::markTestSkipped($e->getMessage());
+        }
+    }
+
     public function testFromInvalidDsn()
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -158,6 +167,14 @@ class ConnectionTest extends TestCase
     {
         $this->expectDeprecation('Since symfony/messenger 5.1: Invalid option(s) "foo" passed to the Redis Messenger transport. Passing invalid options is deprecated.');
         Connection::fromDsn('redis://localhost/queue?foo=bar');
+    }
+
+    public function testRedisClusterInstanceIsSupported()
+    {
+        $this->skipIfRedisClusterUnavailable();
+
+        $redis = new \RedisCluster(null, explode(' ', getenv('REDIS_CLUSTER_HOSTS')));
+        $this->assertInstanceOf(Connection::class, new Connection([], [], [], $redis));
     }
 
     public function testKeepGettingPendingMessages()
