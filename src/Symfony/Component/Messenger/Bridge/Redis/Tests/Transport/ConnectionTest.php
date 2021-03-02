@@ -68,6 +68,20 @@ class ConnectionTest extends TestCase
         );
     }
 
+    public function testFromDsnWithMultipleHosts()
+    {
+        $this->skipIfRedisClusterUnavailable();
+
+        $hosts = explode(' ', getenv('REDIS_CLUSTER_HOSTS'));
+
+        $dsn = array_map(function ($host) {
+            return 'redis://'.$host;
+        }, $hosts);
+        $dsn = implode(',', $dsn);
+
+        $this->assertInstanceOf(Connection::class, Connection::fromDsn($dsn));
+    }
+
     public function testFromDsnOnUnixSocket()
     {
         $this->assertEquals(
@@ -445,5 +459,21 @@ class ConnectionTest extends TestCase
         $this->assertSame('1', $message['body']);
         $connection->reject($message['id']);
         $redis->del('messenger-lazy');
+    }
+
+    public function testLazyCluster()
+    {
+        $this->skipIfRedisClusterUnavailable();
+
+        $connection = new Connection(
+            ['lazy' => true],
+            ['host' => explode(' ', getenv('REDIS_CLUSTER_HOSTS'))]
+        );
+
+        $connection->add('1', []);
+        $this->assertNotEmpty($message = $connection->get());
+        $this->assertSame('1', $message['body']);
+        $connection->reject($message['id']);
+        $connection->cleanup();
     }
 }
